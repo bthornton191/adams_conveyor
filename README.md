@@ -20,11 +20,11 @@ The **adams_conveyor.bin** file included in this repository was created for Adam
 
 1. Place all elements that make up the first conveyor unit into a group.  
 2. Create a curve or chain geometry defining the path the conveyor will follow.
-3. Constrain the conveyor to the path using **two** point curve constraints
+3. Constrain the conveyor to the path using **two** point curve constraints.
 4. Place a marker on ground in the center of the conveyor path.  This marker must be in the conveyor path plane and must be placed such that you can draw a line to any point on the path and the line will not intersect with the adjacent points.
-5. Navigate to *Tools>Conveyor Builder*
-6. Fill out the dialog box
-7. Click *OK*
+5. Navigate to *Tools>Conveyor Builder*.
+6. Fill out the dialog box.
+7. Click *OK*.
 
 ## Modifying
 
