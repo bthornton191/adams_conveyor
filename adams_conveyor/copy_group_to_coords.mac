@@ -1,0 +1,150 @@
+! -----------------------------------------------------------------
+! MACRO NAME:  copy_group_to_coords
+! DESCRIPTION: Copies objects in a group and translates to all the coordinates in the given Nx3 matrix
+! AUTHOR:      Ben Thornton (ben.thornton@mscsoftware.com)
+! 
+!$grp_nm:t=group:c=1
+!$mtrx:t=ADAMS_Matrix:c=1
+!$ofst_mtrx:t=ADAMS_Matrix:c=1
+!$ref_mkr:t=marker:c=1
+!$cen_mkr:t=marker:c=1
+!$echo_all_loops:t=string:c=1:d=no
+!END_OF_PARAMETERS
+! -----------------------------------------------------------------
+
+! Set marker names
+variable set variable_name=$_self.cur_mkr_nm string_value=(eval(unique_name("acnvr_loc")))
+variable set variable_name=$_self.cur_ofst_nm string_value=(eval(unique_name("acnvr_ofst_loc")))
+
+! Place a marker at the point
+marker create &
+	marker_name = (eval(".ground." // $_self.cur_mkr_nm)) &
+	location = (eval(loc_global($mtrx.values[1, *], $ref_mkr)))
+	
+! Place a marker at the offset point
+marker create &
+	marker_name = (eval(".ground." // $_self.cur_ofst_nm)) &
+	location = (eval(loc_global($ofst_mtrx.values[1, *], $ref_mkr)))
+
+! Orient the marker
+marker modify &
+	marker_name = (eval($_self.cur_mkr_nm)) &
+	orientation = (eval(ori_in_plane($_self.cur_mkr_nm, $_self.cur_ofst_nm, $cen_mkr, "x_xy")))	
+
+! Orient the offset marker
+marker modify &
+	marker_name = (eval($_self.cur_ofst_nm)) &
+	orientation = (eval(ori_in_plane($_self.cur_mkr_nm, $_self.cur_ofst_nm, $cen_mkr, "x_xy")))	
+	
+! Set the group name
+variable set variable_name=$_self.gp_nm string_value="$grp_nm"
+
+! Get a unique name for the temporary group we will create later
+variable set variable_name=$_self.tmp_grp_nm string_value=(eval(unique_name("_acnvr_tmp_grp")))
+
+for variable_name=$_self.row start_value=2 end_value=(eval($mtrx.row_count)) echo_all_loops=$echo_all_loops
+	! -------------
+	! Place Markers
+	! -------------
+	! Update marker names
+	variable set variable_name=$_self.prv_mkr_nm string_value=(eval($_self.cur_mkr_nm))
+	variable set variable_name=$_self.cur_mkr_nm string_value=(eval(unique_name("acnvr_loc")))
+	variable set variable_name=$_self.cur_ofst_nm string_value=(eval(unique_name("acnvr_ofst_loc")))
+	
+	! Place a marker at the point
+	marker create &
+		marker_name = (eval(".ground." // $_self.cur_mkr_nm)) &
+		location = (eval(loc_global($mtrx.values[$_self.row, *], $ref_mkr)))
+		
+	! Place a marker at the offset point
+	marker create &
+		marker_name = (eval(".ground." // $_self.cur_ofst_nm)) &
+		location = (eval(loc_global($ofst_mtrx.values[$_self.row, *], $ref_mkr)))
+
+	! Orient the marker
+	marker modify &
+		marker_name = (eval($_self.cur_mkr_nm)) &
+		orientation = (eval(ori_in_plane($_self.cur_mkr_nm, $_self.cur_ofst_nm, $cen_mkr, "x_xy")))	
+
+	! Orient the offset marker
+	marker modify &
+		marker_name = (eval($_self.cur_ofst_nm)) &
+		orientation = (eval(ori_in_plane($_self.cur_mkr_nm, $_self.cur_ofst_nm, $cen_mkr, "x_xy")))	
+	
+	! ----------
+	! Copy Group
+	! ----------
+	! Set the new group name
+	variable set variable_name=$_self.prv_gp_nm string_value=(eval($_self.gp_nm))
+	variable set variable_name=$_self.gp_nm string_value=(eval(unique_name_in_hierarchy("$grp_nm")))
+	
+	! Copy	
+	group object copy group_name=(eval($_self.prv_gp_nm)) new_group=(eval($_self.gp_nm))
+	
+	! -------------------------------------------------------------------
+	! Create a temporary group that doesn't have the GCON and Point Curves
+	! -------------------------------------------------------------------
+	group create group_name=(eval($_self.tmp_grp_nm))
+	
+	! Loop over the objects in the group
+	for variable_name = $_self.obj group_name=(eval($_self.gp_nm)) echo_all_loops=$echo_all_loops		
+		
+		! Proceed if this is NOT a GCON or Point Curve
+		if condition=(db_type(eval($_self.obj)) != "General_Constraint" && db_type(eval($_self.obj)) != "Point_Curve")			
+			
+			! Check if we've already added objects to the group					
+			if condition=(eval(db_count($_self.tmp_grp_nm, "objects")) == 0)
+			
+				! If the group is still empty, add the object
+				group modify group_name=(eval($_self.tmp_grp_nm)) objects_in_group=(eval($_self.obj))
+				
+				! Set the flag to indicate we've added an object to the group
+				variable set variable_name=$_self.flg integer_value=1
+			
+			else			
+				! If the group already has objects, add the object
+				group modify &
+					group_name = (eval($_self.tmp_grp_nm)) &
+					objects_in_group = (eval(stoo($_self.tmp_grp_nm).objects)) , (eval($_self.obj))				
+			end
+		end
+	end
+	
+	! --------------------
+	! Move Temporary Group
+	! --------------------	
+	! Calculate distances
+	variable set &
+		variable_name = $_self.delta_x &
+		real_value = (eval(stoo($_self.cur_mkr_nm).loc_x - stoo($_self.prv_mkr_nm).loc_x))
+	variable set &
+		variable_name = $_self.delta_y &
+		real_value = (eval(stoo($_self.cur_mkr_nm).loc_y - stoo($_self.prv_mkr_nm).loc_y))
+	variable set &
+		variable_name = $_self.delta_z &
+		real_value=(eval(stoo($_self.cur_mkr_nm).loc_z - stoo($_self.prv_mkr_nm).loc_z))
+   
+	! Translate
+	move translation &
+		group_name = (eval($_self.tmp_grp_nm)) &
+		c1 = (eval($_self.delta_x)) &
+		c2 = (eval($_self.delta_y)) &
+		c3 = (eval($_self.delta_z))
+	
+	! Rotate
+	move rotation group_name=(eval($_self.tmp_grp_nm)) &
+		csmarker_name = (eval($_self.cur_mkr_nm)) &
+		about = yes &
+		a1 = (eval(ORI_LOCAL(stoo($_self.cur_mkr_nm).orientation, $_self.prv_mkr_nm)[1])) &
+		a2 = (eval(ORI_LOCAL(stoo($_self.cur_mkr_nm).orientation,  $_self.prv_mkr_nm)[2])) &
+		a3 = (eval(ORI_LOCAL(stoo($_self.cur_mkr_nm).orientation,  $_self.prv_mkr_nm)[3]))  
+		! a1 = (eval(ORI_ORI(stoo($_self.cur_mkr_nm).orientation, $cen_mkr, $_self.prv_mkr_nm)[1])) &
+		! a2 = (eval(ORI_ORI(stoo($_self.cur_mkr_nm).orientation, $cen_mkr,  $_self.prv_mkr_nm)[2])) &
+		! a3 = (eval(ORI_ORI(stoo($_self.cur_mkr_nm).orientation, $cen_mkr,  $_self.prv_mkr_nm)[3]))  
+	
+	! Delete the temporary group
+	group delete group_name=(eval($_self.tmp_grp_nm))		
+end
+
+! Clean up.
+variable delete variable=$_self.*

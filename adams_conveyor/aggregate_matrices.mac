@@ -1,0 +1,70 @@
+! -----------------------------------------------------------------
+! MACRO NAME:  aggregate_matrices
+! DESCRIPTION: 
+! AUTHOR:      Ben Thornton (ben.thornton@mscsoftware.com)
+!$matrices:T=ADAMS_Matrix:c=0
+!$new_matrix_name:T=string:c=1
+!$echo_all_loops:t=string:c=1:d=no
+!END_OF_PARAMETERS
+
+variable set variable_name=$_self.matrices object_value=$matrices
+variable set variable_name=$_self.first_loop integer_value=1
+
+! Loop over all the matrices (no particular order)
+for variable_name=$_self.i start_value=1 end_value=(eval(rows($_self.matrices))) echo_all_loops=$echo_all_loops
+	
+	! ----------
+	! First Loop
+	! ----------
+	if condition=($_self.first_loop==1)
+	
+	! Flag that the first loop has passed
+		variable set variable_name=$_self.first_loop integer_value=0
+		
+		! Create the aggregate matrix
+		data_element create matrix full &
+			matrix_name=(eval(DB_ANCESTOR($_self.matrices[$_self.i], "model") // ".$new_matrix_name")) &
+			input_order = by_row &
+			values=(eval($_self.matrices[$_self.i].values[2 : $_self.matrices[$_self.i].row_count, *])) &
+			row_count=(eval($_self.matrices[$_self.i].row_count - 1)) &
+			column_count=(eval($_self.matrices[$_self.i].column_count))		
+				
+	! ---------------
+	! All Other Loops
+	! ---------------
+	else
+		
+		variable set variable_name=$_self.last_x real_value=(eval($new_matrix_name.values[$new_matrix_name.row_count, 1]))
+		variable set variable_name=$_self.last_y real_value=(eval($new_matrix_name.values[$new_matrix_name.row_count, 2]))
+		variable set variable_name=$_self.last_z real_value=(eval($new_matrix_name.values[$new_matrix_name.row_count, 3]))
+		
+		! Loop over all the matrices to find the one that starts closest to the end of the last one
+		variable set variable_name=$_self.min_dist real_value=9999999			
+		for variable_name=$_self.j start_value=1 end_value=(eval(rows($_self.matrices))) echo_all_loops=$echo_all_loops
+			
+			! Define the x,y,z coords of the start of the candidate matrix
+			variable set variable_name=$_self.x real_value=(eval($_self.matrices[$_self.j].values[1, 1]))
+			variable set variable_name=$_self.y real_value=(eval($_self.matrices[$_self.j].values[1, 2]))
+			variable set variable_name=$_self.z real_value=(eval($_self.matrices[$_self.j].values[1, 3]))				
+			
+			! Define the distance from the start of candidate matrix to end of previous matrix
+			variable set variable_name=$_self.dist real_value=(eval(sqrt(($_self.x - $_self.last_x)**2 + ($_self.y - $_self.last_y)**2 + ($_self.z - $_self.last_z)**2)))
+			
+			! Check if the distance is less than the previous minimum
+			if condition=(eval($_self.dist < $_self.min_dist))
+				variable set variable_name=$_self.next_mtrx object_value=(eval($_self.matrices[$_self.j]))
+				variable set variable_name=$_self.min_dist real_value=(eval($_self.dist))
+			end		
+		end
+		
+		! Concatenate
+		data_element modify matrix full &
+			matrix_name=(eval(DB_ANCESTOR($_self.next_mtrx, "model") // ".$new_matrix_name")) &
+			values=(eval(stack($new_matrix_name.values, $_self.next_mtrx.values[2 : $_self.next_mtrx.row_count, *]))) &
+			row_count=(eval(eval(DB_ANCESTOR($_self.next_mtrx, "model")).$new_matrix_name.row_count + $_self.next_mtrx.row_count-1)) &
+			column_count=(eval(eval(DB_ANCESTOR($_self.next_mtrx, "model")).$new_matrix_name.column_count))			
+	end
+end
+
+! Clean up.
+variable delete variable_name=$_self.*

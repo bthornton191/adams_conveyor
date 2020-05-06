@@ -1,0 +1,57 @@
+! ---------------------------------------------
+! Delete macro dialog box if it's already there
+! ---------------------------------------------
+if condition=(DB_EXISTS(".gui.dbox_adams_conveyor"))
+   group empty group = select_list
+   group object add group=select_list &
+         objects = .gui.dbox_adams_conveyor
+   mdi delete_macro
+end
+ 
+! --------------------------------------
+! Delete separator if it's already there
+! --------------------------------------
+if condition=(DB_EXISTS(".gui.main.mmenu_menu.mbar_refresh.tools.sep__acnvr"))
+   group empty group = select_list
+   group object add group=select_list &
+         objects = .gui.main.mmenu_menu.mbar_refresh.tools.sep__acnvr
+   mdi delete_macro
+end
+
+! ----------------------------------------
+! Delete menu button if it's already there
+! ----------------------------------------
+if condition=(DB_EXISTS(".gui.main.mmenu_menu.mbar_refresh.tools.adams_conveyor_btn"))
+   group empty group = select_list
+   group object add group=select_list &
+         objects = .gui.main.mmenu_menu.mbar_refresh.tools.adams_conveyor_btn
+   mdi delete_macro
+end
+
+! ----------------------------------------------
+! Create a dialog box for the adams_conveyor macro
+! ----------------------------------------------
+macro modify &
+   macro_name = .adams_conveyor.adams_conveyor_main &
+   create_panel = yes
+
+! Clean up the auto-generated dialog box
+interface dialog_box modify &
+	dialog_box_name = .gui.dbox_adams_conveyor_main &
+	title = "Conveyor Builder" &
+	help_text = "This is the adams_conveyor help text" &
+	documentation_text = "This is the adams_conveyor documentation text"
+  
+! ------------------
+! Create a separator
+! ------------------
+interface separator create  &
+   separator_name = .gui.main.mmenu_menu.mbar_refresh.tools.sep__acnvr
+   
+! --------------------
+! Create a menu button
+! --------------------
+interface push_button create push_button_name = .gui.main.mmenu_menu.mbar_refresh.tools.adams_conveyor_btn &
+  label="Conveyor Builder" &
+  command = "interface dialog display dialog=.gui.dbox_adams_conveyor_main"
+  

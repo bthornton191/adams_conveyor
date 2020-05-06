@@ -1,0 +1,25 @@
+!$st_mkr:t=marker:c=1
+!$mtrx:t=ADAMS_matrix:c=1
+!$ref_mkr:t=marker:c=1
+!$echo_all_loops:t=string:c=1:d=no
+!END_OF_PARAMETERS
+
+variable set variable_name=$_self.st_loc real_value=(eval(loc_global($st_mkr.location, $st_mkr.parent)))
+
+! Check if the coordinate happens to be exactly the same as the one we're about to insert
+if condition=(eval(loc_global($mtrx.values[1,*],$ref_mkr)[1] == $_self.st_loc[1] && loc_global($mtrx.values[1,*],$ref_mkr)[2] == $_self.st_loc[2] && loc_global($mtrx.values[1,*],$ref_mkr)[3] == $_self.st_loc[3]))
+	! If it is the same, replace it
+	data_element modify matrix full &
+		matrix_name = $mtrx &
+		column_count = (eval($mtrx.column_count)) &
+		row_count = (eval($mtrx.row_count)) &
+		values=(eval(stack(transpose({loc_local({$_self.st_loc[1], $_self.st_loc[2], $_self.st_loc[3]}, $ref_mkr)}), $mtrx.values[2:$mtrx.row_count,*])))
+	
+else
+	! If it is NOT the same, insert it
+	data_element modify matrix full &
+		matrix_name = $mtrx &
+		column_count = (eval($mtrx.column_count)) &
+		row_count = (eval($mtrx.row_count + 1)) &
+		values=(eval(stack(transpose({loc_local({$_self.st_loc[1], $_self.st_loc[2], $_self.st_loc[3]}, $ref_mkr)}), $mtrx.values)))
+end

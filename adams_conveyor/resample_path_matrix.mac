@@ -1,0 +1,51 @@
+! -----------------------------------------------------------------
+! MACRO NAME:  resample_path_matrix
+! DESCRIPTION: Resamples a matrix of coordinates on a path such 
+!              that each set of coordinates has a constant spacing 
+!              defined by the pitch argument.  Uses akispline.
+! AUTHOR:      Ben Thornton (ben.thornton@mscsoftware.com)
+! 
+!$mtrx:t=ADAMS_matrix:c=1
+!$copies:t=real:c=1
+!$pitch:t=real:c=1
+!$resampled_matrix_name:t=string:c=1
+!$offset_matrix_name:t=string:c=1
+!$offset:t=real:c=1
+!$echo_all_loops:t=string:c=1:d=no
+!END_OF_PARAMETERS
+! -----------------------------------------------------------------
+
+! Make a list of station for each coordinate
+variable set variable_name=$_self.station real = 0
+for variable_name=$_self.row start_value=2 end_value=(eval($mtrx.row_count)) echo_all_loops=$echo_all_loops
+   variable set variable_name=$_self.station &
+	  real = (eval($_self.station)) , (eval($_self.station[$_self.row-1] + sqrt(($mtrx.values[$_self.row, 1] - $mtrx.values[$_self.row-1, 1])**2 + ($mtrx.values[$_self.row, 2] - $mtrx.values[$_self.row-1, 2])**2 + ($mtrx.values[$_self.row, 3] - $mtrx.values[$_self.row-1, 3])**2)))
+end  
+
+! Create variables for the new coordinates
+variable set variable_name=$_self.x real_value=(eval(interp1($_self.station, $mtrx.values[*,1], series(0, $pitch, $copies), "spline")))
+variable set variable_name=$_self.y real_value=(eval(interp1($_self.station, $mtrx.values[*,2], series(0, $pitch, $copies), "spline")))
+variable set variable_name=$_self.z real_value=(eval(interp1($_self.station, $mtrx.values[*,3], series(0, $pitch, $copies), "spline")))
+
+variable set variable_name=$_self.x_off real_value=(eval(interp1($_self.station, $mtrx.values[*,1], series($offset, $pitch, $copies), "spline")))
+variable set variable_name=$_self.y_off real_value=(eval(interp1($_self.station, $mtrx.values[*,2], series($offset, $pitch, $copies), "spline")))
+variable set variable_name=$_self.z_off real_value=(eval(interp1($_self.station, $mtrx.values[*,3], series($offset, $pitch, $copies), "spline")))
+
+! Create Resampled Matrix
+data_element create matrix full &
+   matrix_name=(eval(db_ancestor($mtrx, "model") // ".$resampled_matrix_name")) &
+   input_order = by_column &
+   values=(eval($_self.x)), (eval($_self.y)), (eval($_self.z)) &
+   row_count=$copies &
+   column_count=3
+   
+! Create Offset Matrix
+data_element create matrix full &
+   matrix_name=(eval(db_ancestor($mtrx, "model") // ".$offset_matrix_name")) &
+   input_order = by_column &
+   values=(eval($_self.x_off)), (eval($_self.y_off)), (eval($_self.z_off)) &
+   row_count=$copies &
+   column_count=3
+
+! Clean up.
+variable delete variable=$_self.*

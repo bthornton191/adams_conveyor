@@ -1,0 +1,23 @@
+! Delete temporary Matrices
+if condition=(eval(db_exists("_acnvr_agg_mtrx_")))
+   data_element delete data_element_name = _acnvr_agg_mtrx_ 
+end
+if condition=(eval(db_exists("_acnvr_smpld_mtrx")))
+   data_element delete data_element_name = _acnvr_smpld_mtrx
+end
+
+! Delete local variables
+if condition=(eval(db_of_type_exists(".adams_conveyor.*", "variable")))
+   var del var=.adams_conveyor.*
+end
+
+! Run the main macro
+acnvr main &
+	group_name = LugOne &
+	first_point_curve = PTCV_2 &
+	second_point_curve = PTCV_1 &
+	number_of_copies = 10 &
+	pitch = 101.6 &
+	center_marker = center_mkr &
+	echo_all_loops=yes
+	

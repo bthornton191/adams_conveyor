@@ -1,0 +1,142 @@
+! -----------------------------------------------------------------
+! MACRO NAME:  get_start_row
+! DESCRIPTION: Finds the row that should immediately follow the start marker once it is inserted
+! AUTHOR:      Ben Thornton (ben.thornton@mscsoftware.com)
+! 
+!$mtrx:t=ADAMS_matrix:c=1
+!$ref_mkr:t=marker:c=1
+!$st_mkr_a:t=marker:c=1
+!$st_mkr_b:t=marker:c=1
+!$row_variable_name:t=string:c=1
+!$mkr_variable_name:t=string:c=1
+!$echo_all_loops:t=string:c=1:d=no
+!END_OF_PARAMETERS
+! -----------------------------------------------------------------
+
+! The start row is the row that is closest to the refenence marker and on the correct side
+variable set variable_name=$_self.st_loc_a real_value=(eval(loc_loc($st_mkr_a.location, $st_mkr_a.parent, $ref_mkr)))
+variable set variable_name=$_self.st_loc_b real_value=(eval(loc_loc($st_mkr_b.location, $st_mkr_b.parent, $ref_mkr)))
+
+variable set variable_name=$_self.d_min_a real_value=1e9
+variable set variable_name=$_self.d_min_b real_value=1e9
+
+variable set variable_name=$_self.flag_a integer_value=0
+variable set variable_name=$_self.flag_b integer_value=0
+
+! Loop over the rows in the matrix starting with the 2nd row since the 1st row is the same as the last row.
+for variable_name=$_self.row start_value=2 end_value=(eval($mtrx.row_count)-1) echo_all_loops=$echo_all_loops
+	
+	! -------------------------------------------------
+	! Get the coordinates in the global reference frame
+	! -------------------------------------------------
+	variable set variable_name=$_self.cur_loc real_value=(eval($mtrx.values[$_self.row, *]))
+	variable set variable_name=$_self.nxt_loc real_value=(eval($mtrx.values[$_self.row+1, *]))
+	
+	! -----------------------------------------------------------------------
+	! Determine the distance between the start markers and the candidate point
+	! -----------------------------------------------------------------------
+	variable set &
+		variable_name = $_self.d_a &
+		real_value = (eval(sqrt(($_self.cur_loc[1] - $_self.st_loc_a[1])**2 + ($_self.cur_loc[2] - $_self.st_loc_a[2])**2 + ($_self.cur_loc[3] - $_self.st_loc_a[3])**2)))
+	variable set &
+		variable_name = $_self.d_b &
+		real_value = (eval(sqrt(($_self.cur_loc[1] - $_self.st_loc_a[1])**2 + ($_self.cur_loc[2] - $_self.st_loc_a[2])**2 + ($_self.cur_loc[3] - $_self.st_loc_a[3])**2)))
+	
+	! -------------------------------------------
+	! Determine which coordinate changes the most
+	! -------------------------------------------
+	! Start by assuming x (1)
+	variable set variable_name=$_self.chg_cmp integer_value=1
+	variable set variable_name=$_self.max_delta real_value=(eval(abs($_self.nxt_loc[1] - $_self.cur_loc[1])))	
+	
+	! Loop over y (2) and z (3) to see if they change the most
+	for var=$_self.comp start_value=2 end_value=3 echo_all_loops=$echo_all_loops
+		
+		! Calculate the delta
+		variable set variable_name=$_self.delta real_value=(eval(abs($_self.nxt_loc[$_self.comp] - $_self.cur_loc[$_self.comp])))
+		
+		! Check if the delta is greater than the current max
+		if condition=(eval($_self.delta > $_self.max_delta))
+			
+			! If the delta is greater than the current max, set it as the current max and set this comp as the changing component
+			variable set variable_name=$_self.max_delta real_value=(eval($_self.delta))
+			variable set variable_name=$_self.chg_cmp integer_value=(eval($_self.comp))
+		end
+	end
+	
+	! ---------------------------------------------------------------------------------------
+	! Check if start marker A is between the candidate point and the next point in the matrix	
+	! ---------------------------------------------------------------------------------------
+	! Increaseing position
+	if condition=(eval($_self.cur_loc[$_self.chg_cmp] < $_self.st_loc_a[$_self.chg_cmp] && $_self.st_loc_a[$_self.chg_cmp] <= $_self.nxt_loc[$_self.chg_cmp] && $_self.d_a < $_self.d_min_a))
+		variable set variable_name=$_self.st_row_a integer_value=(eval($_self.row+1))
+		variable set variable_name=$_self.d_min_a real_value=(eval($_self.d_a))
+		variable set variable_name=$_self.flag_a integer_value=1
+	
+	! Decreasing position
+	elseif condition=(eval($_self.cur_loc[$_self.chg_cmp] > $_self.st_loc_a[$_self.chg_cmp] && $_self.st_loc_a[$_self.chg_cmp] >= $_self.nxt_loc[$_self.chg_cmp] && $_self.d_a < $_self.d_min_a))
+		variable set variable_name=$_self.st_row_a integer_value=(eval($_self.row+1))
+		variable set variable_name=$_self.d_min_a real_value=(eval($_self.d_a))
+		variable set variable_name=$_self.flag_a integer_value=1
+	end
+	
+	
+	! ---------------------------------------------------------------------------------------
+	! Check if start marker B is between the candidate point and the next point in the matrix	
+	! ---------------------------------------------------------------------------------------
+	! Increaseing position
+	if condition=(eval($_self.cur_loc[$_self.chg_cmp] < $_self.st_loc_b[$_self.chg_cmp] && $_self.st_loc_b[$_self.chg_cmp] <= $_self.nxt_loc[$_self.chg_cmp] && $_self.d_b < $_self.d_min_b))		
+		variable set variable_name=$_self.st_row_b integer_value=(eval($_self.row+1))
+		variable set variable_name=$_self.d_min_b real_value=(eval($_self.d_b))
+		variable set variable_name=$_self.flag_b integer_value=1
+		
+	! Decreasing position
+	elseif condition=(eval($_self.cur_loc[$_self.chg_cmp] > $_self.st_loc_b[$_self.chg_cmp] && $_self.st_loc_b[$_self.chg_cmp] >= $_self.nxt_loc[$_self.chg_cmp] && $_self.d_b < $_self.d_min_b))
+		variable set variable_name=$_self.st_row_b integer_value=(eval($_self.row+1))
+		variable set variable_name=$_self.d_min_b real_value=(eval($_self.d_b))
+		variable set variable_name=$_self.flag_b integer_value=1
+	end
+end
+
+! If no start row was found, assume the start row must be one
+if condition=(eval($_self.flag_a == 0))
+	variable set variable_name=$_self.st_row_a integer_value=1
+end
+
+if condition=(eval($_self.flag_b == 0))
+	variable set variable_name=$_self.st_row_a integer_value=1
+end
+
+! Check which marker to pick ast the start marker and row
+if condition=(eval(abs($_self.st_row_a - $_self.st_row_a) > $mtrx.row_count*0.5))
+
+	! If the two markers straddle the end points  
+	if condition=(eval($_self.st_row_a > $_self.st_row_b))
+	
+		! If the two markers straddle the end points and marker A has a higher row, pick A
+		variable set variable_name=$row_variable_name integer_value=(eval($_self.st_row_a))
+		variable set variable_name=$mkr_variable_name object_value=$st_mkr_a	
+	else
+
+		! If the two markers straddle the end points and marker B has a higher row, pick B
+		variable set variable_name=$row_variable_name integer_value=(eval($_self.st_row_b))
+		variable set variable_name=$mkr_variable_name object_value=$st_mkr_b
+	end	
+else
+
+	! If the two markers do NOT straddle the end points
+	if condition=(eval($_self.st_row_a < $_self.st_row_b))
+	
+		! If the two markers do NOT straddle the end points and marker A has a lower row, pick A
+		variable set variable_name=$row_variable_name integer_value=(eval($_self.st_row_a))
+		variable set variable_name=$mkr_variable_name object_value=$st_mkr_a	
+	else
+	
+		! If the two markers do NOT straddle the end points and marker B has a lower row, pick B
+		variable set variable_name=$row_variable_name integer_value=(eval($_self.st_row_b))
+		variable set variable_name=$mkr_variable_name object_value=$st_mkr_b
+	end
+end
+
+! Clean up.
+variable delete variable=$_self.*

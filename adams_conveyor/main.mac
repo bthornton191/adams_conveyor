@@ -1,0 +1,80 @@
+! -----------------------------------------------------------------
+!$group_name:t=group:c=1
+!$first_point_curve:t=point_curve:c=1
+!$second_point_curve:t=point_curve:c=1
+!$number_of_copies:t=real:c=1
+!$pitch:t=real:c=1
+!$center_marker:t=marker:c=1
+!$echo_all_loops:t=string:c=1:d=no
+!END_OF_PARAMETERS
+! -----------------------------------------------------------------
+
+defaults model model_name=(eval(DB_ANCESTOR($first_point_curve, "model")))
+
+! Get the curve matrix and the curve reference marker associated with the point curve
+variable set variable_name=$_self.st_mkr_a object_value=(eval($first_point_curve.i_marker_name))
+variable set variable_name=$_self.st_mkr_b object_value=(eval($second_point_curve.i_marker_name))
+variable set variable_name=$_self.mtrx object_value=(eval($first_point_curve.curve.matrix))
+variable set variable_name=$_self.crv_ref_mkr object_value=(eval($first_point_curve.ref_marker_name))
+variable set variable_name=$_self.rearranged_mtrx_nm string_value=(eval(UNIQUE_NAME("_acnvr_agg_mtrx")))
+variable set variable_name=$_self.sampled_mtrx_nm string_value=(eval(UNIQUE_NAME("_acnvr_smpld_mtrx")))
+variable set variable_name=$_self.offset_mtrx_nm string_value=(eval(UNIQUE_NAME("_acnvr_ofst_mtrx")))
+
+! -----------------
+! Get the start row 
+! -----------------
+acnvr get_start_row &
+	mtrx=(eval($_self.mtrx)) &
+	st_mkr_a=(eval($_self.st_mkr_a)) &
+	st_mkr_b=(eval($_self.st_mkr_b)) &
+	ref_mkr=(eval($_self.crv_ref_mkr)) &
+	row_variable_name=($_self // ".start_row") &
+	mkr_variable_name=($_self // ".st_mkr") &
+	echo_all_loops=no
+
+! -------------------------------------------------------------------------------
+! Rearrange the matrix so that the point closest to the reference marker is first
+! -------------------------------------------------------------------------------
+acnvr rearrange_matrix &
+	mtrx=(eval($_self.mtrx)) &
+	new_matrix_name=(eval($_self.rearranged_mtrx_nm)) &
+	start_row=(eval($_self.start_row)) &
+	echo_all_loops=no
+
+! --------------------------------------------------------------
+! Insert the coordinates of the reference marker into the matrix
+! --------------------------------------------------------------
+acnvr insert_marker_coords &
+	st_mkr=(eval($_self.st_mkr)) &
+	mtrx=(eval($_self.rearranged_mtrx_nm)) &	
+	ref_mkr=(eval($_self.crv_ref_mkr)) &
+	echo_all_loops=no	
+
+! ----------------------
+! Interpolate the matrix
+! ----------------------
+acnvr resample_path_matrix &
+	mtrx=(eval($_self.rearranged_mtrx_nm)) &
+	copies=$number_of_copies &
+	pitch=$pitch &
+	resampled_matrix_name=(eval($_self.sampled_mtrx_nm)) &
+	offset_matrix_name=(eval($_self.offset_mtrx_nm)) &
+	offset=(eval(DM($_self.st_mkr_a, $_self.st_mkr_b))) &
+	echo_all_loops=no
+
+! ----------------------------------------------------
+! Copy the group to the points in the resampled matrix
+! ----------------------------------------------------
+acnvr copy_group_to_coords &
+	grp_nm=$group_name &
+	mtrx=(eval($_self.sampled_mtrx_nm)) &
+	ofst_mtrx=(eval($_self.offset_mtrx_nm)) &
+	ref_mkr=(eval($_self.crv_ref_mkr)) &
+	cen_mkr=$center_marker &
+	echo_all_loops=$echo_all_loops
+
+! Clean up.
+data_element delete data_element_name=(eval($_self.sampled_mtrx_nm))
+data_element delete data_element_name=(eval($_self.rearranged_mtrx_nm))
+data_element delete data_element_name=(eval($_self.offset_mtrx_nm))
+variable delete variable=$_self.*

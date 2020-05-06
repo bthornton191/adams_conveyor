@@ -1,0 +1,29 @@
+! ----------------
+! Delete Separator
+! ----------------
+if condition=(DB_EXISTS(".gui.main.mmenu_menu.mbar_refresh.tools.sep__acnvr"))
+   group empty group = select_list
+   group object add group=select_list &
+         objects = .gui.main.mmenu_menu.mbar_refresh.tools.sep__acnvr
+   mdi delete_macro
+end
+
+! ------------------
+! Delete menu button
+! ------------------
+if condition=(DB_EXISTS(".gui.main.mmenu_menu.mbar_refresh.tools.adams_conveyor_btn"))
+   group empty group = select_list
+   group object add group=select_list &
+         objects = .gui.main.mmenu_menu.mbar_refresh.tools.adams_conveyor_btn
+   mdi delete_macro
+end
+
+! -----------------------
+! Delete macro dialog box
+! -----------------------
+if condition=(DB_EXISTS(".gui.dbox_adams_conveyor"))
+   group empty group = select_list
+   group object add group=select_list &
+         objects = .gui.dbox_adams_conveyor
+   mdi delete_macro
+end

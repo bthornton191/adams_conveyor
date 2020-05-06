@@ -1,0 +1,39 @@
+! -----------------------------------------------------------------
+! MACRO NAME:  rearrange_matrix
+! DESCRIPTION: Rearranges a Nx3 matrix so that it starts at the given row.
+! AUTHOR:      Ben Thornton (ben.thornton@mscsoftware.com)
+!$mtrx:t=ADAMS_matrix:c=1
+!$new_matrix_name:t=string:c=1
+!$start_row:t=integer:c=1
+!$echo_all_loops:t=string:c=1:d=no
+!END_OF_PARAMETERS
+! -----------------------------------------------------------------
+
+! Loop from new start to old end
+for variable_name=$_self.row start_value=$start_row end_value=(eval($mtrx.row_count)) echo_all_loops=$echo_all_loops   
+   
+   ! If this is the first iteration of the loop, create a temporary matrix
+   if condition=($_self.row==$start_row)
+      data_element create matrix &
+         full matrix_name = $new_matrix_name &
+         column_count=(eval($mtrx.column_count)) &
+         row_count=1 &
+         input_order=by_row &
+         values=(eval($mtrx.values[$_self.row,*]))
+   else
+      data_element modify matrix full &
+         matrix_name = $new_matrix_name &
+         column_count = (eval($new_matrix_name.column_count)) &
+         row_count = (eval($new_matrix_name.row_count + 1)) &
+         values=(eval(stack($new_matrix_name.values, $mtrx.values[$_self.row,*])))
+   end
+end
+
+! Loop from old start to new start (start at 2 since the first row is the same as the last)
+for variable_name=$_self.row start_value=2 end_value=(eval($start_row-1)) echo_all_loops=$echo_all_loops
+   data_element modify matrix full &
+      matrix_name = $new_matrix_name &
+      column_count = (eval($mtrx.column_count)) &
+      row_count = (eval($new_matrix_name.row_count + 1)) &
+      values=(eval(stack($new_matrix_name.values, $mtrx.values[$_self.row,*])))
+end
